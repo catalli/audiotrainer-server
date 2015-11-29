@@ -153,6 +153,7 @@ watcher.on('add', function(path) {
 				loudnessGraph.push(features.loudness.total);
 				perceptualSpreadGraph.push(features.perceptualSpread);
 				perceptualSharpnessGraph.push(features.perceptualSharpness);
+				mfccGraph.push(features.mfcc);
 			}
 		});
 		
@@ -197,10 +198,19 @@ watcher.on('add', function(path) {
 						rmsGraphSlice = rmsGraph.slice(j, i+1);
 						energyGraphSlice = energyGraph.slice(j, i+1);
 						spectralSlopeGraphSlice = spectralSlopeGraph.slice(j, i+1);
+						loudnessGraphSlice = loudnessGraph.slice(j, i+1);
+						perceptualSpreadGraphSlice = perceptualSpreadGraph.slice(j, i+1);
+						perceptualSharpnessGraphSlice = perceptualSharpnessGraph.slice(j, i+1);
+						mfccGraphSlice = mfccGraph.slice(j, i+1);
+						
 						zcrCorrelations.push(getCorrelation(increasingGraph, zcrGraphSlice));
 						rmsCorrelations.push(getCorrelation(increasingGraph, rmsGraphSlice));
 						energyCorrelations.push(getCorrelation(increasingGraph, energyGraphSlice));
 						spectralSlopeCorrelations.push(getCorrelation(increasingGraph, spectralSlopeGraphSlice));
+						loudnessCorrelations.push(getCorrelation(increasingGraph, loudnessGraphSlice));
+						perceptualSpreadCorrelations.push(getCorrelation(increasingGraph, perceptualSpreadGraphSlice));
+						perceptualSharpnessCorrelations.push(getCorrelation(increasingGraph, perceptualSharpnessGraphSlice));
+						mfccCorrelations.push(getCorrelation(increasingGraph, mfccGraphSlice));
 						
 						while(heartrates[i] >= heartrateThreshold) {
 							i++;
@@ -213,20 +223,38 @@ watcher.on('add', function(path) {
 					'rmsCorrelation':null,
 					'energyCorrelation':null,
 					'spectralSlopeCorrelation':null,
+					'loudnessCorrelation':null,
+					'perceptualSpreadCorrelation':null,
+					'perceptualSharpnessCorrelation':null,
+					'mfccCorrelation':null,
 					'zcrPts':0,
 					'rmsPts':0,
 					'energyPts':0,
-					'spectralSlopePts':0
+					'spectralSlopePts':0,
+					'loudnessPts':0,
+					'perceptualSpreadPts':0,
+					'perceptualSharpnessPts':0,
+					'mfccPts':0
 				}
 				var zcrCorr = getAvg(zcrCorrelations);
 				var rmsCorr = getAvg(rmsCorrelations);
 				var energyCorr = getAvg(energyCorrelations);
 				var spectralSlopeCorr = getAvg(spectralSlopeCorrelations);
+				var loudnessCorr = getAvg(loudnessCorrelations);
+				var perceptualSpreadCorr = getAvg(perceptualSpreadCorrelations);
+				var perceptualSharpnessCorr = getAvg(perceptualSharpnessCorrelations);
+				var mfccCorr = getAvg(mfccCorrelations);
+				
 				output.zcrCorrelation = zcrCorr;
 				output.rmsCorrelation = rmsCorr;
 				output.energyCorrelation = energyCorr;
 				output.spectralSlopeCorrelation = spectralSlopeCorr;
-				var correlations = [zcrCorr, rmsCorr, energyCorr, spectralSlopeCorr];
+				output.loudnessCorrelation = loudnessCorr;
+				output.perceptualSpreadCorrelation = perceptualSpreadCorr;
+				output.perceptualSharpnessCorrelation = perceptualSharpnessCorr;
+				output.mfccCorrelation = mfccCorr;
+				
+				var correlations = [zcrCorr, rmsCorr, energyCorr, spectralSlopeCorr, loudnessCorr, perceptualSpreadCorr, perceptualSharpnessCorr, mfccCorr];
 				console.log(correlations);
 				for (var i = 3; i <= 1; i--) {
 					var maxIndex = getMaxIndex(correlations);
@@ -243,15 +271,29 @@ watcher.on('add', function(path) {
 						case 3:
 							spectralSlopePoints += i;
 							break;
+						case 4:
+							loudnessPoints += i;
+							break;
+						case 5:
+							perceptualSpreadPoints += i;
+							break;
+						case 6:
+							perceptualSharpnessPoints += i;
+							break;
+						case 7:
+							mfccPoints += i;
+							break;
 					}
 					correlations[maxIndex] = -1000;
 				}
-				points = [zcrPoints, rmsPoints, energyPoints, spectralSlopePoints];
-				console.log(points);
 				output.zcrPts = zcrPoints;
 				output.rmsPts = rmsPoints;
 				output.energyPts = energyPoints;
 				output.spectralSlopePts = spectralSlopePoints;
+				output.loudnessPts = loudnessPoints;
+				output.perceptualSpreadPts = perceptualSpreadPoints;
+				output.perceptualSharpnessPts = perceptualSharpnessPoints;
+				output.mfccPts = mfccSlopePoints;
 				console.log(output);
 				var outputFile = config.outputPath + datetime + '.json';
 				jsonfile.writeFile(outputFile, output, function(err) {
