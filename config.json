@@ -1,0 +1,7 @@
+{ 
+"outputPath":"public/correlations/",
+"heartratePath":"public/heartrate/",
+"soundPath":"public/audio/",
+"bufferSize":24000,
+"fileFormat":".wav"
+}
