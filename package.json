@@ -5,7 +5,7 @@
   "main": "index.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Number-42/audiotrainer-server.git"
+    "url": "git://github.com/Number-42/audiotrainer-server.git"
   },
   "keywords": [
     "asd"

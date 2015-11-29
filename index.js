@@ -15,7 +15,7 @@ var meyda_utils = require("meyda").utils;
 
 var config = require('./config.json');
 
-/*
+
 function getSpectrum(_d) {
     var windowedSignal = meyda_utils.applyWindow(_d, 'hanning')
     // create complexarray to hold the spectrum
@@ -33,7 +33,6 @@ function getSpectrum(_d) {
     }
     return ampSpectrum
 }
-*/
 
 function getAvg(array) {
 	var total = 0;
@@ -79,6 +78,7 @@ function getMaxIndex(array) {
 	}
 	return maxIndex;
 }
+
 
 var watcher = chokidar.watch(config.heartratePath, {ignored: /^\./, persistent: true});
 
@@ -140,6 +140,13 @@ watcher.on('add', function(path) {
 		//var context = new AudioContext();
 		//var record = new Audio();
 		/*
+		var datetime = new Date().toISOString().replace(/T/,' ').replace(/\..+/, ' ');
+		//add audio feature extractions here
+		window.AudioContext = window.AudioContext || window.webkitAudioContext;
+		var context = new AudioContext();
+		var audioPath = path.replace("heartrate","audio");
+		window.source = context.createMediaElementSource(record);
+		var audioBuffer = config.bufferSize;
 		var meyda = new Meyda({
 			"audioContext":context,
 			"source":source,
@@ -202,7 +209,7 @@ watcher.on('add', function(path) {
 						perceptualSpreadGraphSlice = perceptualSpreadGraph.slice(j, i+1);
 						perceptualSharpnessGraphSlice = perceptualSharpnessGraph.slice(j, i+1);
 						mfccGraphSlice = mfccGraph.slice(j, i+1);
-						
+
 						zcrCorrelations.push(getCorrelation(increasingGraph, zcrGraphSlice));
 						rmsCorrelations.push(getCorrelation(increasingGraph, rmsGraphSlice));
 						energyCorrelations.push(getCorrelation(increasingGraph, energyGraphSlice));
@@ -219,14 +226,17 @@ watcher.on('add', function(path) {
 				}
 				var output = {
 					'timestamp':datetime,
+					
 					'zcrCorrelation':null,
 					'rmsCorrelation':null,
 					'energyCorrelation':null,
 					'spectralSlopeCorrelation':null,
+					
 					'loudnessCorrelation':null,
 					'perceptualSpreadCorrelation':null,
 					'perceptualSharpnessCorrelation':null,
 					'mfccCorrelation':null,
+
 					'zcrPts':0,
 					'rmsPts':0,
 					'energyPts':0,
@@ -293,7 +303,7 @@ watcher.on('add', function(path) {
 				output.loudnessPts = loudnessPoints;
 				output.perceptualSpreadPts = perceptualSpreadPoints;
 				output.perceptualSharpnessPts = perceptualSharpnessPoints;
-				output.mfccPts = mfccSlopePoints;
+				output.mfccPts = mfccPoints;
 				console.log(output);
 				var outputFile = config.outputPath + datetime + '.json';
 				jsonfile.writeFile(outputFile, output, function(err) {
