@@ -203,12 +203,12 @@ watcher.on('add', function(path) {
 				console.log(audioData.channelData[0]);
 				console.log(audioData.channelData[1]);
 				console.log("Commencing feature extraction.");
-				for(var i = 0;i<audioData.length-buffSize;i+=buffSize) {
+				for(var i = 0;i<audioData.channelData.length-buffSize;i+=buffSize) {
 					var sig_end = i+buffSize;
-					if(sig_end > audioData.length) {
+					if(sig_end > audioData.channelData.length) {
 						sig_end = audioData.length;
 					}	
-					var my_signal = audioData.slice(i, sig_end);
+					var my_signal = audioData.channelData.slice(i, sig_end);
 					var buffSizeNew = my_signal.length;
 					var ampSpec = getSpectrum(signal);
 					
