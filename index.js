@@ -10,10 +10,12 @@ var extractors = require("./node_modules/meyda/dist/node/featureExtractors.js");
 var utils = require("./utils.js");
 var meyda_utils = require("meyda").utils;
 
-//var meyda = require('meyda');
-//var AudioContext = require('web-audio-api').AudioContext;
+var WavDecoder = require("wav-decoder");
 
 var config = require('./config.json');
+
+//var meyda = require('meyda');
+//var AudioContext = require('web-audio-api').AudioContext;
 
 
 function getSpectrum(_d) {
@@ -130,6 +132,17 @@ watcher.on('add', function(path) {
 		var perceptualSharpnessPoints = 0;
 		var mfccPoints = 0;
 		
+		var readFile = function(filepath) {
+			return new Promise(function(resolve, reject) {
+				fs.readFile(filepath, function(err, buffer) {
+					if(err) {
+						return reject(err);
+					}
+					return resolve(buffer);
+				});
+			});
+		};
+		
 		var datetime = new Date().toISOString().replace(/T/,' ').replace(/\..+/, ' ');
 		console.log(datetime);
 		//add audio feature extractions here
@@ -166,40 +179,128 @@ watcher.on('add', function(path) {
 		
 		meyda.start(["zcr","rms","energy","spectralSlope","loudness","perceptualSpread","perceptualSharpness","mfcc"]);
 		*/
+		
 		csv
 			.fromPath(path)
 			.on("data", function(data) {
 				for(var i = 0; i<data.length;i++) {
-					console.log(data[i]+" "+typeof data[i]);
+					//console.log(data[i]+" "+typeof data[i]);
 					heartrates.push(parseFloat(data[i]));
 					heartratesSorted.push(parseFloat(data[i]));
-					console.log(heartrates[i]+" "+typeof heartrates[i]);
+					//console.log(heartrates[i]+" "+typeof heartrates[i]);
 				}
 			})
 			.on("end", function() {
-				console.log("heartrates: "+heartrates);
+			
+			var samplePeriod = config.heartratePeriod;
+			
+			readFile(audioPath).then(function(buffer) {
+				console.log("Reading audio file.");
+				return WavDecoder.decode(buffer);
+			}).then(function(audioData) {
+				console.log("sample Rate: "+audioData.sampleRate);
+				var buffSize = audioData.sampleRate*samplePeriod
+				console.log(audioData.channelData[0]);
+				console.log(audioData.channelData[1]);
+				console.log("Commencing feature extraction.");
+				for(var i = 0;i<audioData.length-buffSize;i+=buffSize) {
+					var sig_end = i+buffSize;
+					if(sig_end > audioData.length) {
+						sig_end = audioData.length;
+					}	
+					var my_signal = audioData.slice(i, sig_end);
+					var buffSizeNew = my_signal.length;
+					var ampSpec = getSpectrum(signal);
+					
+					var zcrs = extractors.zcr({
+						signal: my_signal,
+						bufferSize: buffSizeNew,
+						sampleRate: audioData.sampleRate
+					});
+					
+					var rmss = extractors.rms({
+						signal: my_signal,
+						bufferSize: buffSizeNew,
+						sampleRate: audioData.sampleRate
+					});
+					
+					var energys = extractors.energy({
+						signal: my_signal,
+						bufferSize: buffSizeNew,
+						sampleRate: audioData.sampleRate
+					});
+					
+					var spectralSlopes = extractors.spectralSlope({
+						ampSpectrum: ampSpec,
+						bufferSize: buffSizeNew,
+						sampleRate: audioData.sampleRate
+					});
+					
+					var loudnesss = extractors.loudness({
+						ampSpectrum: ampSpec,
+						bufferSize: buffSizeNew,
+						sampleRate: audioData.sampleRate
+					});
+					
+					var perceptualSpreads = extractors.perceptualSpread({
+						ampSpectrum: ampSpec,
+						bufferSize: buffSizeNew,
+						sampleRate: audioData.sampleRate
+					});
+					
+					var perceptualSharpnesss = extractors.perceptualSharpness({
+						ampSpectrum: ampSpec,
+						bufferSize: buffSizeNew,
+						sampleRate: audioData.sampleRate
+					});
+					
+					var mfccs = extractors.mfcc({
+						ampSpectrum: ampSpec,
+						bufferSize: buffSizeNew,
+						sampleRate: audioData.sampleRate
+					});
+					
+					console.log("zcr: "+zcrs);
+					console.log("rms: "+rmss);
+					console.log("spectralSlope: "+spectralSlopes);
+					console.log("loudness: "+loudnesss);
+					console.log("perceptualSpread: "+perceptualSpreads);
+					console.log("perceptualSharpness: "+perceptualSharpnesss);
+					console.log("mfcc: "+mfccs);
+										
+					zcrGraph.push(zcrs);
+					rmsGraph.push(rmss);
+					energyGraph.push(energys);
+					spectralSlopeGraph.push(spectralSlopes);
+					loudnessGraph.push(loudnesss.total);
+					perceptualSpreadGraph.push(perceptualSpreads);
+					perceptualSharpnessGraph.push(perceptualSharpnesss);
+					mfccGraph.push(mfccs);
+				}
+			}).then(function() {
+				//console.log("heartrates: "+heartrates);
 				heartratesSorted.sort();
 				heartratesSorted.reverse();
-				console.log("sorted heartrates: "+heartratesSorted);
-				console.log("heartrates: "+heartrates);
+				//console.log("sorted heartrates: "+heartratesSorted);
+				//console.log("heartrates: "+heartrates);
 				heartrateAvg = getAvg(heartrates);
 				console.log("heartrateAvg: "+heartrateAvg);
 				var heartrateThreshold = heartratesSorted[Math.ceil(heartratesSorted.length/10)];
 				console.log("heartrateThreshold: "+heartrateThreshold);
 				for(var i = 0;i < heartrates.length;i++) {
 					if(heartrates[i] >= heartrateThreshold) {
-						console.log("evaluated value ("+i+"): "+heartrates[i]);
+						//console.log("evaluated value ("+i+"): "+heartrates[i]);
 						while(heartrates[i+1] > heartrates[i]) {
 							i++;
 						}
-						console.log("new value ("+i+"): "+heartrates[i]);
+						//console.log("new value ("+i+"): "+heartrates[i]);
 						var j = i;
 						while(heartrates[j] > heartrateAvg) {
-							console.log("j value ("+j+"): "+heartrates[j]);
+							//console.log("j value ("+j+"): "+heartrates[j]);
 							j--;
 						}
 						increasingGraph = heartrates.slice(j, i+1);
-						console.log("increasingGraph: "+increasingGraph);
+						//console.log("increasingGraph: "+increasingGraph);
 						//add correlation calcs here
 						zcrGraphSlice = zcrGraph.slice(j, i+1);
 						rmsGraphSlice = rmsGraph.slice(j, i+1);
@@ -309,9 +410,10 @@ watcher.on('add', function(path) {
 				jsonfile.writeFile(outputFile, output, function(err) {
 					console.error(err);
 				});
-			})
-		}
-	});
+			});
+		});
+	}
+});
 	
-//cogito ergo sum
+//cogito ergo sum 
 	
