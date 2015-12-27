@@ -70,3 +70,7 @@ node_modules
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Default Data I/O Directories #
+################################
+public
