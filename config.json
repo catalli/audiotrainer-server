@@ -1,0 +1,9 @@
+{ 
+"_comment":"Do not change fileFormat for now.",
+"outputPath":"public/correlations/",
+"heartratePath":"public/heartrate/",
+"soundPath":"public/audio/",
+"samplePath":"public/samples/",
+"heartratePeriod":0.5,
+"fileFormat":".wav"
+}
