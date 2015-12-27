@@ -3,7 +3,7 @@
 "outputPath":"public/correlations/",
 "heartratePath":"public/heartrate/",
 "soundPath":"public/audio/",
-"samplePath":"/public/samples",
+"samplePath":"public/samples/",
 "heartratePeriod":0.5,
 "fileFormat":".wav"
 }

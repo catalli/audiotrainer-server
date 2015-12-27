@@ -1,4 +1,3 @@
-//var events = require('events');
 var fs = require('fs');
 var chokidar = require('chokidar');
 var csv = require('fast-csv');
@@ -7,33 +6,25 @@ var jsonfile = require('jsonfile');
 var jsfft = require("jsfft");
 var complex_array = require("./node_modules/jsfft/lib/complex_array.js");
 var extractors = require("./node_modules/meyda/dist/node/featureExtractors.js");
-var utils = require("./utils.js");
-var meyda_utils = require("meyda").utils;
+var meyda_utils = require("./node_modules/meyda/dist/node/utilities.js");
 
 var WavDecoder = require("wav-decoder");
 
 var config = require('./config.json');
 
-//var meyda = require('meyda');
-//var AudioContext = require('web-audio-api').AudioContext;
-
-
+//getSpectrum function provided by jakubfiala, Meyda Developer
 function getSpectrum(_d) {
-    var windowedSignal = meyda_utils.applyWindow(_d, 'hanning')
-    // create complexarray to hold the spectrum
-    var data = new complex_array.ComplexArray(_d.length)
-    // map time domain
+    var windowedSignal = meyda_utils.applyWindow(_d, 'hanning');
+    var data = new complex_array.ComplexArray(_d.length);
     data.map(function(value, i, n) {
-        value.real = windowedSignal[i]
+        value.real = windowedSignal[i];
     });
-    // transform
     var spec = data.FFT();
-    // assign to meyda
-    var ampSpectrum = new Float32Array(_d.length/2)
+    var ampSpectrum = new Float32Array(_d.length/2);
     for (var i = 0; i < _d.length/2; i++) {
-        ampSpectrum[i] = Math.sqrt(Math.pow(spec.real[i],2) + Math.pow(spec.imag[i],2))
+        ampSpectrum[i] = Math.sqrt(Math.pow(spec.real[i],2) + Math.pow(spec.imag[i],2));
     }
-    return ampSpectrum
+    return ampSpectrum;
 }
 
 function getAvg(array) {
@@ -85,25 +76,13 @@ function getMaxIndex(array) {
 var watcher = chokidar.watch(config.heartratePath, {ignored: /^\./, persistent: true});
 
 watcher.on('add', function(path) {
-		var pathSplit = path.split("/");
-		var fileName = pathSplit[pathSplit.length-1];
-		console.log("fileName: "+fileName);
-		if(fileName[0]!="."){
+	var pathSplit = path.split("/");
+	var fileName = pathSplit[pathSplit.length-1];
+	if(fileName[0]!=".") {
 		var audioPath = config.soundPath +fileName.replace(".csv",config.fileFormat);
-		console.log("heartrate file detected: "+path);
-		console.log("audioPath: "+audioPath);
 		var heartrates = new Array();
 		var heartratesSorted = new Array();
 		var increasingGraph = new Array();
-		
-		var zcrGraph = new Array();
-		var rmsGraph = new Array();
-		var energyGraph = new Array();
-		var spectralSlopeGraph = new Array();
-		var loudnessGraph = new Array();
-		var perceptualSpreadGraph = new Array();
-		var perceptualSharpnessGraph = new Array();
-		var mfccGraph = new Array();
 		
 		var zcrCorrelations = new Array();
 		var rmsCorrelations = new Array();
@@ -144,50 +123,12 @@ watcher.on('add', function(path) {
 		};
 		
 		var datetime = new Date().toISOString().replace(/T/,' ').replace(/\..+/, ' ');
-		console.log(datetime);
-		//add audio feature extractions here
-		//window.AudioContext = window.AudioContext || window.webkitAudioContext;
-		//var context = new AudioContext();
-		//window.source = context.createMediaElementSource(record);
-		//var audioBuffer = config.bufferSize;
-		//var context = new AudioContext();
-		//var record = new Audio();
-		/*
-		var datetime = new Date().toISOString().replace(/T/,' ').replace(/\..+/, ' ');
-		//add audio feature extractions here
-		window.AudioContext = window.AudioContext || window.webkitAudioContext;
-		var context = new AudioContext();
-		var audioPath = path.replace("heartrate","audio");
-		window.source = context.createMediaElementSource(record);
-		var audioBuffer = config.bufferSize;
-		var meyda = new Meyda({
-			"audioContext":context,
-			"source":source,
-			"bufferSize":audioBuffer,
-			"callback":function(features) {
-				console.log(features);
-				zcrGraph.push(features.zcr);
-				rmsGraph.push(features.rms);
-				energyGraph.push(features.energy);
-				spectralSlopeGraph.push(features.spectralSlope);
-				loudnessGraph.push(features.loudness.total);
-				perceptualSpreadGraph.push(features.perceptualSpread);
-				perceptualSharpnessGraph.push(features.perceptualSharpness);
-				mfccGraph.push(features.mfcc);
-			}
-		});
-		
-		meyda.start(["zcr","rms","energy","spectralSlope","loudness","perceptualSpread","perceptualSharpness","mfcc"]);
-		*/
-		
 		csv
 			.fromPath(path)
 			.on("data", function(data) {
 				for(var i = 0; i<data.length;i++) {
-					//console.log(data[i]+" "+typeof data[i]);
 					heartrates.push(parseFloat(data[i]));
 					heartratesSorted.push(parseFloat(data[i]));
-					//console.log(heartrates[i]+" "+typeof heartrates[i]);
 				}
 			})
 			.on("end", function() {
@@ -195,133 +136,123 @@ watcher.on('add', function(path) {
 			var samplePeriod = config.heartratePeriod;
 			
 			readFile(audioPath).then(function(buffer) {
-				console.log("Reading audio file.");
 				return WavDecoder.decode(buffer);
 			}).then(function(audioData) {
-				console.log("sample Rate: "+audioData.sampleRate);
-				var buffSize = audioData.sampleRate*samplePeriod
-				console.log(audioData.channelData[0]);
-				console.log(audioData.channelData[1]);
-				console.log("Commencing feature extraction.");
-				for(var i = 0;i<audioData.channelData.length-buffSize;i+=buffSize) {
-					var sig_end = i+buffSize;
-					if(sig_end > audioData.channelData.length) {
-						sig_end = audioData.length;
-					}	
-					var my_signal = audioData.channelData.slice(i, sig_end);
-					var buffSizeNew = my_signal.length;
-					var ampSpec = getSpectrum(signal);
+				var buffSize = audioData.sampleRate*samplePeriod;
+				for (var n = 0;n<audioData.channelData.length;n++) {
+					var zcrGraph = new Array();
+					var rmsGraph = new Array();
+					var energyGraph = new Array();
+					var spectralSlopeGraph = new Array();
+					var loudnessGraph = new Array();
+					var perceptualSpreadGraph = new Array();
+					var perceptualSharpnessGraph = new Array();
+					var mfccGraph = new Array();
+					for(var i = 0;i<audioData.channelData[n].length-buffSize;i+=buffSize) {
+						var sig_end = i+buffSize;
+						if(sig_end > audioData.channelData[n].length) {
+							sig_end = audioData.channelData[n].length;
+						}	
+						var my_signal = audioData.channelData[n].slice(i, sig_end);
+						var buffSizeNew = my_signal.length;
+						var ampSpec = getSpectrum(my_signal);
 					
-					var zcrs = extractors.zcr({
-						signal: my_signal,
-						bufferSize: buffSizeNew,
-						sampleRate: audioData.sampleRate
-					});
+						var zcrs = extractors.zcr({
+							signal: my_signal,
+							bufferSize: buffSizeNew,
+							sampleRate: audioData.sampleRate
+						});
 					
-					var rmss = extractors.rms({
-						signal: my_signal,
-						bufferSize: buffSizeNew,
-						sampleRate: audioData.sampleRate
-					});
+						var rmss = extractors.rms({
+							signal: my_signal,
+							bufferSize: buffSizeNew,
+							sampleRate: audioData.sampleRate
+						});
 					
-					var energys = extractors.energy({
-						signal: my_signal,
-						bufferSize: buffSizeNew,
-						sampleRate: audioData.sampleRate
-					});
+						var energys = extractors.energy({
+							signal: my_signal,
+							bufferSize: buffSizeNew,
+							sampleRate: audioData.sampleRate
+						});
 					
-					var spectralSlopes = extractors.spectralSlope({
-						ampSpectrum: ampSpec,
-						bufferSize: buffSizeNew,
-						sampleRate: audioData.sampleRate
-					});
-					
-					var loudnesss = extractors.loudness({
-						ampSpectrum: ampSpec,
-						bufferSize: buffSizeNew,
-						sampleRate: audioData.sampleRate
-					});
-					
-					var perceptualSpreads = extractors.perceptualSpread({
-						ampSpectrum: ampSpec,
-						bufferSize: buffSizeNew,
-						sampleRate: audioData.sampleRate
-					});
-					
-					var perceptualSharpnesss = extractors.perceptualSharpness({
-						ampSpectrum: ampSpec,
-						bufferSize: buffSizeNew,
-						sampleRate: audioData.sampleRate
-					});
-					
-					var mfccs = extractors.mfcc({
-						ampSpectrum: ampSpec,
-						bufferSize: buffSizeNew,
-						sampleRate: audioData.sampleRate
-					});
-					
-					console.log("zcr: "+zcrs);
-					console.log("rms: "+rmss);
-					console.log("spectralSlope: "+spectralSlopes);
-					console.log("loudness: "+loudnesss);
-					console.log("perceptualSpread: "+perceptualSpreads);
-					console.log("perceptualSharpness: "+perceptualSharpnesss);
-					console.log("mfcc: "+mfccs);
+						var spectralSlopes = extractors.spectralSlope({
+							ampSpectrum: ampSpec,
+							bufferSize: buffSizeNew,
+							sampleRate: audioData.sampleRate
+						});
 										
-					zcrGraph.push(zcrs);
-					rmsGraph.push(rmss);
-					energyGraph.push(energys);
-					spectralSlopeGraph.push(spectralSlopes);
-					loudnessGraph.push(loudnesss.total);
-					perceptualSpreadGraph.push(perceptualSpreads);
-					perceptualSharpnessGraph.push(perceptualSharpnesss);
-					mfccGraph.push(mfccs);
-				}
-			}).then(function() {
-				//console.log("heartrates: "+heartrates);
-				heartratesSorted.sort();
-				heartratesSorted.reverse();
-				//console.log("sorted heartrates: "+heartratesSorted);
-				//console.log("heartrates: "+heartrates);
-				heartrateAvg = getAvg(heartrates);
-				console.log("heartrateAvg: "+heartrateAvg);
-				var heartrateThreshold = heartratesSorted[Math.ceil(heartratesSorted.length/10)];
-				console.log("heartrateThreshold: "+heartrateThreshold);
-				for(var i = 0;i < heartrates.length;i++) {
-					if(heartrates[i] >= heartrateThreshold) {
-						//console.log("evaluated value ("+i+"): "+heartrates[i]);
-						while(heartrates[i+1] > heartrates[i]) {
-							i++;
-						}
-						//console.log("new value ("+i+"): "+heartrates[i]);
-						var j = i;
-						while(heartrates[j] > heartrateAvg) {
-							//console.log("j value ("+j+"): "+heartrates[j]);
-							j--;
-						}
-						increasingGraph = heartrates.slice(j, i+1);
-						//console.log("increasingGraph: "+increasingGraph);
-						//add correlation calcs here
-						zcrGraphSlice = zcrGraph.slice(j, i+1);
-						rmsGraphSlice = rmsGraph.slice(j, i+1);
-						energyGraphSlice = energyGraph.slice(j, i+1);
-						spectralSlopeGraphSlice = spectralSlopeGraph.slice(j, i+1);
-						loudnessGraphSlice = loudnessGraph.slice(j, i+1);
-						perceptualSpreadGraphSlice = perceptualSpreadGraph.slice(j, i+1);
-						perceptualSharpnessGraphSlice = perceptualSharpnessGraph.slice(j, i+1);
-						mfccGraphSlice = mfccGraph.slice(j, i+1);
+						var loudnesss = extractors.loudness({
+							ampSpectrum: ampSpec,
+							barkScale: buffSizeNew,
+							sampleRate: audioData.sampleRate
+						});
+					
+						var perceptualSpreads = extractors.perceptualSpread({
+							signal: my_signal,
+							ampSpectrum: ampSpec,
+							barkScale: buffSizeNew,
+							bufferSize: buffSizeNew,
+							sampleRate: audioData.sampleRate
+						});
+										
+						var perceptualSharpnesss = extractors.perceptualSharpness({
+							signal: my_signal,
+							ampSpectrum: ampSpec,
+							barkScale: buffSizeNew,
+							bufferSize: buffSizeNew,
+							sampleRate: audioData.sampleRate
+						});
+										
+						var mfccs = extractors.mfcc({
+							ampSpectrum: ampSpec,
+							bufferSize: buffSizeNew,
+							sampleRate: audioData.sampleRate
+						});						
+						zcrGraph.push(zcrs);
+						rmsGraph.push(rmss);
+						energyGraph.push(energys);
+						spectralSlopeGraph.push(spectralSlopes);
+						loudnessGraph.push(loudnesss.total);
+						perceptualSpreadGraph.push(perceptualSpreads);
+						perceptualSharpnessGraph.push(perceptualSharpnesss);
+						mfccGraph.push(getAvg(mfccs));
+					}
+					heartratesSorted.sort();
+					heartratesSorted.reverse();
+					heartrateAvg = getAvg(heartrates);
+					var heartrateThreshold = heartratesSorted[Math.ceil(heartratesSorted.length/10)];
+					for(var i = 0;i < heartrates.length;i++) {
+						if(heartrates[i] >= heartrateThreshold) {
+							while(heartrates[i+1] > heartrates[i]) {
+								i++;
+							}
+							var j = i;
+							while(heartrates[j] > heartrateAvg) {
+								j--;
+							}
+							increasingGraph = heartrates.slice(j, i+1);
+							zcrGraphSlice = zcrGraph.slice(j, i+1);
+							rmsGraphSlice = rmsGraph.slice(j, i+1);
+							energyGraphSlice = energyGraph.slice(j, i+1);
+							spectralSlopeGraphSlice = spectralSlopeGraph.slice(j, i+1);
+							loudnessGraphSlice = loudnessGraph.slice(j, i+1);
+							perceptualSpreadGraphSlice = perceptualSpreadGraph.slice(j, i+1);
+							perceptualSharpnessGraphSlice = perceptualSharpnessGraph.slice(j, i+1);
+							mfccGraphSlice = mfccGraph.slice(j, i+1);
 
-						zcrCorrelations.push(getCorrelation(increasingGraph, zcrGraphSlice));
-						rmsCorrelations.push(getCorrelation(increasingGraph, rmsGraphSlice));
-						energyCorrelations.push(getCorrelation(increasingGraph, energyGraphSlice));
-						spectralSlopeCorrelations.push(getCorrelation(increasingGraph, spectralSlopeGraphSlice));
-						loudnessCorrelations.push(getCorrelation(increasingGraph, loudnessGraphSlice));
-						perceptualSpreadCorrelations.push(getCorrelation(increasingGraph, perceptualSpreadGraphSlice));
-						perceptualSharpnessCorrelations.push(getCorrelation(increasingGraph, perceptualSharpnessGraphSlice));
-						mfccCorrelations.push(getCorrelation(increasingGraph, mfccGraphSlice));
+							zcrCorrelations.push(getCorrelation(increasingGraph, zcrGraphSlice));
+							rmsCorrelations.push(getCorrelation(increasingGraph, rmsGraphSlice));
+							energyCorrelations.push(getCorrelation(increasingGraph, energyGraphSlice));
+							//console.log("energyCorrelations: "+energyCorrelations);
+							spectralSlopeCorrelations.push(getCorrelation(increasingGraph, spectralSlopeGraphSlice));
+							loudnessCorrelations.push(getCorrelation(increasingGraph, loudnessGraphSlice));
+							perceptualSpreadCorrelations.push(getCorrelation(increasingGraph, perceptualSpreadGraphSlice));
+							perceptualSharpnessCorrelations.push(getCorrelation(increasingGraph, perceptualSharpnessGraphSlice));
+							mfccCorrelations.push(getCorrelation(increasingGraph, mfccGraphSlice));
 						
-						while(heartrates[i] >= heartrateThreshold) {
-							i++;
+							while(heartrates[i] >= heartrateThreshold) {
+								i++;
+							}
 						}
 					}
 				}
@@ -346,7 +277,56 @@ watcher.on('add', function(path) {
 					'perceptualSpreadPts':0,
 					'perceptualSharpnessPts':0,
 					'mfccPts':0
+				};
+				for (var i = 0; i<zcrCorrelations.length;i++) {
+					if (isNaN(zcrCorrelations[i])) {
+						zcrCorrelations.splice(i,i+1);
+						i--;
+					}
 				}
+				for (var i = 0; i<rmsCorrelations.length;i++) {
+					if (isNaN(rmsCorrelations[i])) {
+						rmsCorrelations.splice(i,i+1);
+						i--;
+					}
+				}
+				for (var i = 0; i<energyCorrelations.length;i++) {
+					if (isNaN(energyCorrelations[i])) {
+						energyCorrelations.splice(i,i+1);
+						i--;
+					}
+				}
+				for (var i = 0; i<spectralSlopeCorrelations.length;i++) {
+					if (isNaN(spectralSlopeCorrelations[i])) {
+						spectralSlopeCorrelations.splice(i,i+1);
+						i--;
+					}
+				}
+				for (var i = 0; i<loudnessCorrelations.length;i++) {
+					if (isNaN(loudnessCorrelations[i])) {
+						loudnessCorrelations.splice(i,i+1);
+						i--;
+					}
+				}
+				for (var i = 0; i<perceptualSpreadCorrelations.length;i++) {
+					if (isNaN(perceptualSpreadCorrelations[i])) {
+						perceptualSpreadCorrelations.splice(i,i+1);
+						i--;
+					}
+				}
+				for (var i = 0; i<perceptualSharpnessCorrelations.length;i++) {
+					if (isNaN(perceptualSharpnessCorrelations[i])) {
+						perceptualSharpnessCorrelations.splice(i,i+1);
+						i--;
+					}
+				}
+				for (var i = 0; i<mfccCorrelations.length;i++) {
+					if (isNaN(mfccCorrelations[i])) {
+						mfccCorrelations.splice(i,i+1);
+						i--;
+					}
+				}
+				
 				var zcrCorr = getAvg(zcrCorrelations);
 				var rmsCorr = getAvg(rmsCorrelations);
 				var energyCorr = getAvg(energyCorrelations);
@@ -366,8 +346,7 @@ watcher.on('add', function(path) {
 				output.mfccCorrelation = mfccCorr;
 				
 				var correlations = [zcrCorr, rmsCorr, energyCorr, spectralSlopeCorr, loudnessCorr, perceptualSpreadCorr, perceptualSharpnessCorr, mfccCorr];
-				console.log(correlations);
-				for (var i = 3; i <= 1; i--) {
+				for (var i = 3; i >= 1; i--) {
 					var maxIndex = getMaxIndex(correlations);
 					switch(maxIndex) {
 						case 0:
@@ -405,7 +384,6 @@ watcher.on('add', function(path) {
 				output.perceptualSpreadPts = perceptualSpreadPoints;
 				output.perceptualSharpnessPts = perceptualSharpnessPoints;
 				output.mfccPts = mfccPoints;
-				console.log(output);
 				var outputFile = config.outputPath + datetime + '.json';
 				jsonfile.writeFile(outputFile, output, function(err) {
 					console.error(err);
@@ -414,6 +392,3 @@ watcher.on('add', function(path) {
 		});
 	}
 });
-	
-//cogito ergo sum 
-	

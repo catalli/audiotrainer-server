@@ -2,15 +2,25 @@
   "name": "audiotrainer-server",
   "version": "0.1.0",
   "description": "Audio feature extraction to optimize sensitivity-reduction training in ASD-diagnosed children.",
+  "author": "Ali Çataltepe <ali@cataltepe.com>",
+  "contributors":[{
+  	"name":"Ali Çataltepe",
+  	"email":"ali@cataltepe.com"
+  }],
   "main": "index.js",
   "repository": {
     "type": "git",
     "url": "git://github.com/Number-42/audiotrainer-server.git"
   },
+  "scripts":{
+  	"start":"node index.js",
+  	"setup":"mkdir public && mkdir public/audio && mkdir public/heartrate && mkdir public/samples && mkdir public/correlations"
+  },
   "keywords": [
-    "asd"
+    "asd",
+    "audio",
+    "feature-extraction"
   ],
-  "author": "Ali Çataltepe <ali@cataltepe.com>",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/Number-42/audiotrainer-server/issues"
