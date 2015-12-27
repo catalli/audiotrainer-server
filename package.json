@@ -15,8 +15,7 @@
     "url": "git://github.com/Number-42/audiotrainer-server.git"
   },
   "scripts": {
-    "start": "node index.js",
-    "setup": "mkdir public && mkdir public/audio && mkdir public/heartrate && mkdir public/samples && mkdir public/correlations"
+    "start": "mkdir -p public && mkdir -p public/audio && mkdir -p public/heartrate && mkdir -p public/samples && mkdir -p public/correlations && node index.js"
   },
   "keywords": [
     "asd",
@@ -34,10 +33,8 @@
     "jsonfile": "~2.2.3",
     "chokidar": "~1.3.0",
     "fs": "~0.0.2",
-    "web-audio-api": "~0.2.2",
     "jsfft": "git://github.com/dntj/jsfft.git",
-    "wav-decoder": "~0.3.0",
-    "wav-encoder": "~0.3.0",
-    "audiodata": "~1.1.0"
+    "wav-decoder": "~1.0.0",
+    "wav-encoder": "~1.0.0"
   }
 }
