@@ -12,7 +12,7 @@ var WavDecoder = require("wav-decoder");
 
 var config = require('./config.json');
 
-//getSpectrum function provided by jakubfiala, Meyda Developer
+//getSpectrum function provided by jakubfiala, Meyda Collaborator
 function getSpectrum(_d) {
     var windowedSignal = meyda_utils.applyWindow(_d, 'hanning');
     var data = new complex_array.ComplexArray(_d.length);
