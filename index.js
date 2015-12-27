@@ -84,6 +84,8 @@ watcher.on('add', function(path) {
 		var heartratesSorted = new Array();
 		var increasingGraph = new Array();
 		
+		var name = "";
+		
 		var zcrCorrelations = new Array();
 		var rmsCorrelations = new Array();
 		var energyCorrelations = new Array();
@@ -122,11 +124,15 @@ watcher.on('add', function(path) {
 			});
 		};
 		
-		var datetime = new Date().toISOString().replace(/T/,' ').replace(/\..+/, ' ');
+		var datetime = "";
+		var datetimenow = new Date().toISOString().replace(/T/,' ').replace(/\..+/, ' ');
+		
 		csv
 			.fromPath(path)
 			.on("data", function(data) {
-				for(var i = 0; i<data.length;i++) {
+				name = data[0];
+				datetime = data[1];
+				for(var i = 2; i<data.length;i++) {
 					heartrates.push(parseFloat(data[i]));
 					heartratesSorted.push(parseFloat(data[i]));
 				}
@@ -257,6 +263,7 @@ watcher.on('add', function(path) {
 					}
 				}
 				var output = {
+					'name':name,
 					'timestamp':datetime,
 					
 					'zcrCorrelation':null,
