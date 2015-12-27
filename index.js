@@ -9,6 +9,7 @@ var extractors = require("./node_modules/meyda/dist/node/featureExtractors.js");
 var meyda_utils = require("./node_modules/meyda/dist/node/utilities.js");
 
 var WavDecoder = require("wav-decoder");
+var WavEncoder = require("wav-encoder");
 
 var config = require('./config.json');
 
@@ -25,6 +26,26 @@ function getSpectrum(_d) {
         ampSpectrum[i] = Math.sqrt(Math.pow(spec.real[i],2) + Math.pow(spec.imag[i],2));
     }
     return ampSpectrum;
+}
+
+function Float32ArrayMatrix(rows, cols) {
+	var ta = new Float32Array(rows*cols);
+	var matrix = []
+	for (var row = 0; row < rows; row++) {
+		matrix[row] = ta.subarray(row*cols, (row+1)*cols)
+	}
+	return matrix;
+}
+
+function createArray(length) {
+    var arr = new Array(length || 0),
+        i = length;
+
+    if (arguments.length > 1) {
+        var args = Array.prototype.slice.call(arguments, 1);
+        while(i--) arr[length-1 - i] = createArray.apply(this, args);
+    }
+    return arr;
 }
 
 function getAvg(array) {
@@ -126,6 +147,7 @@ watcher.on('add', function(path) {
 		
 		var datetime = "";
 		var datetimenow = new Date().toISOString().replace(/T/,' ').replace(/\..+/, ' ');
+		console.log("C");
 		
 		csv
 			.fromPath(path)
@@ -143,8 +165,38 @@ watcher.on('add', function(path) {
 			
 			readFile(audioPath).then(function(buffer) {
 				return WavDecoder.decode(buffer);
-			}).then(function(audioData) {
+			})
+			.then(function(audioData) {
 				var buffSize = audioData.sampleRate*samplePeriod;
+				
+				console.log("B");
+				var zcrGraphAvg = createArray(Math.ceil(audioData.channelData[0].length/buffSize),n+1);
+				var rmsGraphAvg = createArray(Math.ceil(audioData.channelData[0].length/buffSize),n+1);
+				var energyGraphAvg = createArray(Math.ceil(audioData.channelData[0].length/buffSize),n+1);
+				var spectralSlopeGraphAvg = createArray(Math.ceil(audioData.channelData[0].length/buffSize),n+1);
+				var loudnessGraphAvg = createArray(Math.ceil(audioData.channelData[0].length/buffSize),n+1);
+				var perceptualSpreadGraphAvg = createArray(Math.ceil(audioData.channelData[0].length/buffSize),n+1);
+				var perceptualSharpnessGraphAvg = createArray(Math.ceil(audioData.channelData[0].length/buffSize),n+1);
+				var mfccGraphAvg = createArray(Math.ceil(audioData.channelData[0].length/buffSize),n+1);
+				
+				var zcrGraphAvgSorted = createArray(Math.ceil(audioData.channelData[0].length/buffSize));
+				var rmsGraphAvgSorted = createArray(Math.ceil(audioData.channelData[0].length/buffSize));
+				var energyGraphAvgSorted = createArray(Math.ceil(audioData.channelData[0].length/buffSize));
+				var spectralSlopeGraphAvgSorted = createArray(Math.ceil(audioData.channelData[0].length/buffSize));
+				var loudnessGraphAvgSorted = createArray(Math.ceil(audioData.channelData[0].length/buffSize));
+				var perceptualSpreadGraphAvgSorted = createArray(Math.ceil(audioData.channelData[0].length/buffSize));
+				var perceptualSharpnessGraphAvgSorted = createArray(Math.ceil(audioData.channelData[0].length/buffSize));
+				var mfccGraphAvgSorted = createArray(Math.ceil(audioData.channelData[0].length/buffSize));
+				
+				var zcrSampleCounter = 0;
+				var rmsSampleCounter = 0;
+				var energySampleCounter = 0;
+				var spectralSlopeSampleCounter = 0;
+				var loudnessSampleCounter = 0;
+				var perceptualSpreadSampleCounter = 0;
+				var perceptualSharpnessSampleCounter = 0;
+				var mfccSampleCounter = 0;
+				
 				for (var n = 0;n<audioData.channelData.length;n++) {
 					var zcrGraph = new Array();
 					var rmsGraph = new Array();
@@ -154,7 +206,8 @@ watcher.on('add', function(path) {
 					var perceptualSpreadGraph = new Array();
 					var perceptualSharpnessGraph = new Array();
 					var mfccGraph = new Array();
-					for(var i = 0;i<audioData.channelData[n].length-buffSize;i+=buffSize) {
+					
+					for(var i = 0, k=0;i<audioData.channelData[n].length-buffSize;i+=buffSize, k++) {
 						var sig_end = i+buffSize;
 						if(sig_end > audioData.channelData[n].length) {
 							sig_end = audioData.channelData[n].length;
@@ -222,6 +275,15 @@ watcher.on('add', function(path) {
 						perceptualSpreadGraph.push(perceptualSpreads);
 						perceptualSharpnessGraph.push(perceptualSharpnesss);
 						mfccGraph.push(getAvg(mfccs));
+						
+						zcrGraphAvg[k][n] = zcrs;
+						rmsGraphAvg[k][n] = rmss;
+						energyGraphAvg[k][n] = energys;
+						spectralSlopeGraphAvg[k][n] = spectralSlopes;
+						loudnessGraphAvg[k][n] = loudnesss.total;
+						perceptualSpreadGraphAvg[k][n] = perceptualSpreads;
+						perceptualSharpnessGraphAvg[k][n] = perceptualSharpnesss;
+						mfccGraphAvg[k][n] = getAvg(mfccs);
 					}
 					heartratesSorted.sort();
 					heartratesSorted.reverse();
@@ -395,6 +457,426 @@ watcher.on('add', function(path) {
 				jsonfile.writeFile(outputFile, output, function(err) {
 					console.error(err);
 				});
+				for(var i = 0; i<zcrGraphAvg.length;i++) {
+					zcrGraphAvg[i] = getAvg(zcrGraphAvg[i]);
+					zcrGraphAvgSorted[i] = zcrGraphAvg[i];
+					rmsGraphAvg[i] = getAvg(rmsGraphAvg[i]);
+					rmsGraphAvgSorted[i] = rmsGraphAvg[i];
+					energyGraphAvg[i] = getAvg(energyGraphAvg[i]);
+					energyGraphAvgSorted[i] = energyGraphAvg[i];
+					spectralSlopeGraphAvg[i] = getAvg(spectralSlopeGraphAvg[i]);
+					spectralSlopeGraphAvgSorted[i] = spectralSlopeGraphAvg[i];
+					loudnessGraphAvg[i] = getAvg(loudnessGraphAvg[i]);
+					loudnessGraphAvgSorted[i] = loudnessGraphAvg[i];
+					perceptualSpreadGraphAvg[i] = getAvg(perceptualSpreadGraphAvg[i]);
+					perceptualSpreadGraphAvgSorted[i] = perceptualSpreadGraphAvg[i];
+					perceptualSharpnessGraphAvg[i] = getAvg(perceptualSharpnessGraphAvg[i]);
+					perceptualSharpnessGraphAvgSorted[i] = perceptualSharpnessGraphAvg[i];
+					mfccGraphAvg[i] = getAvg(mfccGraphAvg[i]);
+					mfccGraphAvgSorted[i] = mfccGraphAvg[i];
+				}
+				
+				for (var i = 0; i<zcrGraphAvg.length;i++) {
+					if (isNaN(zcrGraphAvg[i])) {
+						zcrGraphAvg.splice(i,i+1);
+						i--;
+					}
+				}
+				for (var i = 0; i<rmsGraphAvg.length;i++) {
+					if (isNaN(rmsGraphAvg[i])) {
+						rmsGraphAvg.splice(i,i+1);
+						i--;
+					}
+				}
+				for (var i = 0; i<energyGraphAvg.length;i++) {
+					if (isNaN(energyGraphAvg[i])) {
+						energyGraphAvg.splice(i,i+1);
+						i--;
+					}
+				}
+				for (var i = 0; i<spectralSlopeGraphAvg.length;i++) {
+					if (isNaN(spectralSlopeGraphAvg[i])) {
+						spectralSlopeGraphAvg.splice(i,i+1);
+						i--;
+					}
+				}
+				for (var i = 0; i<loudnessGraphAvg.length;i++) {
+					if (isNaN(loudnessGraphAvg[i])) {
+						loudnessGraphAvg.splice(i,i+1);
+						i--;
+					}
+				}
+				for (var i = 0; i<perceptualSpreadGraphAvg.length;i++) {
+					if (isNaN(perceptualSpreadGraphAvg[i])) {
+						perceptualSpreadGraphAvg.splice(i,i+1);
+						i--;
+					}
+				}
+				for (var i = 0; i<perceptualSharpnessGraphAvg.length;i++) {
+					if (isNaN(perceptualSharpnessGraphAvg[i])) {
+						perceptualSharpnessGraphAvg.splice(i,i+1);
+						i--;
+					}
+				}
+				for (var i = 0; i<mfccGraphAvg.length;i++) {
+					if (isNaN(mfccGraphAvg[i])) {
+						mfccGraphAvg.splice(i,i+1);
+						i--;
+					}
+				}
+				
+				zcrGraphAvgSorted.sort();
+				zcrGraphAvgSorted.reverse();
+				console.log(zcrGraphAvg);
+				var zcrThreshold = zcrGraphAvgSorted[Math.ceil(zcrGraphAvgSorted.length/10)];
+				console.log(zcrThreshold);
+				var zcrAvg = getAvg(zcrGraphAvg);
+				console.log(zcrAvg);
+								
+				for(var i = 0; i<zcrGraphAvg.length;i++) {
+					if(zcrGraphAvg[i] >= zcrThreshold) {
+						zcrSampleCounter++;
+						while(zcrGraphAvg[i+1] > zcrGraphAvg[i]) {
+							i++;
+						}
+						var j = i;
+						while(zcrGraphAvg[j] >= zcrAvg) {
+							j--;
+						}
+						i*=buffSize;
+						j*=buffSize;
+						console.log(i+" "+j);
+						if(i > audioData.channelData[0].length) {
+							i = audioData.channelData[0].length;
+						}
+						if(j < 0) {
+							j = 0;
+						}
+						console.log(i+" "+j);
+						var sampleChannels = Float32ArrayMatrix(audioData.channelData.length,i-j+1);
+						for(var n = 0; n<audioData.channelData.length;n++) {
+							for(var m = j; m<i;m++) {
+								sampleChannels[n][m-j] = audioData.channelData[n][m];
+							}
+						}
+						var sampleData = {
+							sampleRate: audioData.sampleRate,
+							channelData: sampleChannels
+						};
+						WavEncoder.encode(sampleData).then(function(buffer) {
+							fs.writeFileSync(config.samplePath+"zcr-"+datetimenow+"-"+zcrSampleCounter+config.fileFormat);
+						});
+						while(i >= zcrThreshold) {
+							i++;
+						}
+					}
+				}
+				
+				rmsGraphAvgSorted.sort();
+				rmsGraphAvgSorted.reverse();
+				var rmsThreshold = rmsGraphAvgSorted[Math.ceil(rmsGraphAvgSorted.length/10)];
+				var rmsAvg = getAvg(rmsGraphAvg);
+				
+				for(var i = 0; i<rmsGraphAvg.length;i++) {
+					if(rmsGraphAvg[i] >= rmsThreshold) {
+						rmsSampleCounter++;
+						while(rmsGraphAvg[i+1] > rmsGraphAvg[i]) {
+							i++;
+						}
+						var j = i;
+						while(rmsGraphAvg[j] >= rmsAvg) {
+							j--;
+						}
+						i*=buffSize;
+						j*=buffSize;
+						console.log(i+" "+j);
+						if(i > audioData.channelData[0].length) {
+							i = audioData.channelData[0].length;
+						}
+						if(j < 0) {
+							j = 0;
+						}
+						var sampleChannels = Float32ArrayMatrix(audioData.channelData.length,i-j+1);
+						for(var n = 0; n<audioData.channelData.length;n++) {
+							for(var m = j; m<i;m++) {
+								sampleChannels[n][m-j] = audioData.channelData[n][m];
+							}
+						}
+						var sampleData = {
+							sampleRate: audioData.sampleRate,
+							channelData: sampleChannels
+						};
+						WavEncoder.encode(sampleData).then(function(buffer) {
+							fs.writeFileSync(config.samplePath+"rms-"+datetimenow+"-"+rmsSampleCounter+config.fileFormat);
+						});
+						while(i >= rmsThreshold) {
+							i++;
+						}
+					}
+				}
+				
+				energyGraphAvgSorted.sort();
+				energyGraphAvgSorted.reverse();
+				var energyThreshold = energyGraphAvgSorted[Math.ceil(energyGraphAvgSorted.length/10)];
+				var energyAvg = getAvg(energyGraphAvg);
+				
+				for(var i = 0; i<energyGraphAvg.length;i++) {
+					if(energyGraphAvg[i] >= energyThreshold) {
+						energySampleCounter++;
+						while(energyGraphAvg[i+1] > energyGraphAvg[i]) {
+							i++;
+						}
+						var j = i;
+						while(energyGraphAvg[j] >= energyAvg) {
+							j--;
+						}
+						i*=buffSize;
+						j*=buffSize;
+						console.log(i+" "+j);
+						if(i > audioData.channelData[0].length) {
+							i = audioData.channelData[0].length;
+						}
+						if(j < 0) {
+							j = 0;
+						}
+						var sampleChannels = Float32ArrayMatrix(audioData.channelData.length,i-j+1);
+						for(var n = 0; n<audioData.channelData.length;n++) {
+							for(var m = j; m<i;m++) {
+								sampleChannels[n][m-j] = audioData.channelData[n][m];
+							}
+						}
+						var sampleData = {
+							sampleRate: audioData.sampleRate,
+							channelData: sampleChannels
+						};
+						WavEncoder.encode(sampleData).then(function(buffer) {
+							fs.writeFileSync(config.samplePath+"energy-"+datetimenow+"-"+energySampleCounter+config.fileFormat);
+						});
+						while(i >= energyThreshold) {
+							i++;
+						}
+					}
+				}
+				
+				spectralSlopeGraphAvgSorted.sort();
+				spectralSlopeGraphAvgSorted.reverse();
+				var spectralSlopeThreshold = spectralSlopeGraphAvgSorted[Math.ceil(spectralSlopeGraphAvgSorted.length/10)];
+				var spectralSlopeAvg = getAvg(spectralSlopeGraphAvg);
+				
+				for(var i = 0; i<spectralSlopeGraphAvg.length;i++) {
+					if(spectralSlopeGraphAvg[i] >= spectralSlopeThreshold) {
+						spectralSlopeSampleCounter++;
+						while(spectralSlopeGraphAvg[i+1] > spectralSlopeGraphAvg[i]) {
+							i++;
+						}
+						var j = i;
+						while(spectralSlopeGraphAvg[j] >= spectralSlopeAvg) {
+							j--;
+						}
+						i*=buffSize;
+						j*=buffSize;
+						console.log(i+" "+j);
+						if(i > audioData.channelData[0].length) {
+							i = audioData.channelData[0].length;
+						}
+						if(j < 0) {
+							j = 0;
+						}
+						var sampleChannels = Float32ArrayMatrix(audioData.channelData.length,i-j+1);
+						console.log(audioData.channelData[0].length);
+						for(var n = 0; n<audioData.channelData.length;n++) {
+							for(var m = j; m<i;m++) {
+								console.log(audioData.channelData[n][m]);
+								sampleChannels[n][m-j] = audioData.channelData[n][m];
+								console.log(sampleChannels[n][m]);
+							}
+						}
+						var sampleData = {
+							sampleRate: audioData.sampleRate,
+							channelData: sampleChannels
+						};
+						WavEncoder.encode(sampleData).then(function(buffer) {
+							fs.writeFileSync(config.samplePath+"spectralSlope-"+datetimenow+"-"+spectralSlopeSampleCounter+config.fileFormat);
+						});
+						while(i >= spectralSlopeThreshold) {
+							i++;
+						}
+					}
+				}
+				
+				loudnessGraphAvgSorted.sort();
+				loudnessGraphAvgSorted.reverse();
+				var loudnessThreshold = loudnessGraphAvgSorted[Math.ceil(loudnessGraphAvgSorted.length/10)];
+				var loudnessAvg = getAvg(loudnessGraphAvg);
+				
+				for(var i = 0; i<loudnessGraphAvg.length;i++) {
+					if(loudnessGraphAvg[i] >= loudnessThreshold) {
+						loudnessSampleCounter++;
+						while(loudnessGraphAvg[i+1] > loudnessGraphAvg[i]) {
+							i++;
+						}
+						var j = i;
+						while(loudnessGraphAvg[j] >= loudnessAvg) {
+							j--;
+						}
+						i*=buffSize;
+						j*=buffSize;
+						console.log(i+" "+j);
+						if(i > audioData.channelData[0].length) {
+							i = audioData.channelData[0].length;
+						}
+						if(j < 0) {
+							j = 0;
+						}
+						var sampleChannels = Float32ArrayMatrix(audioData.channelData.length,i-j+1);
+						for(var n = 0; n<audioData.channelData.length;n++) {
+							for(var m = j; m<i;m++) {
+								sampleChannels[n][m-j] = audioData.channelData[n][m];
+							}
+						}
+						var sampleData = {
+							sampleRate: audioData.sampleRate,
+							channelData: sampleChannels
+						};
+						WavEncoder.encode(sampleData).then(function(buffer) {
+							fs.writeFileSync(config.samplePath+"loudness-"+datetimenow+"-"+loudnessSampleCounter+config.fileFormat);
+						});
+						while(i >= loudnessThreshold) {
+							i++;
+						}
+					}
+				}
+				
+				perceptualSpreadGraphAvgSorted.sort();
+				perceptualSpreadGraphAvgSorted.reverse();
+				var perceptualSpreadThreshold = perceptualSpreadGraphAvgSorted[Math.ceil(perceptualSpreadGraphAvgSorted.length/10)];
+				var perceptualSpreadAvg = getAvg(perceptualSpreadGraphAvg);
+				
+				for(var i = 0; i<perceptualSpreadGraphAvg.length;i++) {
+					if(perceptualSpreadGraphAvg[i] >= perceptualSpreadThreshold) {
+						perceptualSpreadSampleCounter++;
+						while(perceptualSpreadGraphAvg[i+1] > perceptualSpreadGraphAvg[i]) {
+							i++;
+						}
+						var j = i;
+						while(perceptualSpreadGraphAvg[j] >= perceptualSpreadAvg) {
+							j--;
+						}
+						i*=buffSize;
+						j*=buffSize;
+						console.log(i+" "+j);
+						if(i > audioData.channelData[0].length) {
+							i = audioData.channelData[0].length;
+						}
+						if(j < 0) {
+							j = 0;
+						}
+						var sampleChannels = Float32ArrayMatrix(audioData.channelData.length,i-j+1);
+						for(var n = 0; n<audioData.channelData.length;n++) {
+							for(var m = j; m<i;m++) {
+								sampleChannels[n][m-j] = audioData.channelData[n][m];
+							}
+						}
+						var sampleData = {
+							sampleRate: audioData.sampleRate,
+							channelData: sampleChannels
+						};
+						WavEncoder.encode(sampleData).then(function(buffer) {
+							fs.writeFileSync(config.samplePath+"perceptualSpread-"+datetimenow+"-"+perceptualSpreadSampleCounter+config.fileFormat);
+						});
+						while(i >= perceptualSpreadThreshold) {
+							i++;
+						}
+					}
+				}
+				
+				perceptualSharpnessGraphAvgSorted.sort();
+				perceptualSharpnessGraphAvgSorted.reverse();
+				var perceptualSharpnessThreshold = perceptualSharpnessGraphAvgSorted[Math.ceil(perceptualSharpnessGraphAvgSorted.length/10)];
+				var perceptualSharpnessAvg = getAvg(perceptualSharpnessGraphAvg);
+				
+				for(var i = 0; i<perceptualSharpnessGraphAvg.length;i++) {
+					if(perceptualSharpnessGraphAvg[i] >= perceptualSharpnessThreshold) {
+						perceptualSharpnessSampleCounter++;
+						while(perceptualSharpnessGraphAvg[i+1] > perceptualSharpnessGraphAvg[i]) {
+							i++;
+						}
+						var j = i;
+						while(perceptualSharpnessGraphAvg[j] >= perceptualSharpnessAvg) {
+							j--;
+						}
+						console.log(i+" "+j);
+						i*=buffSize;
+						j*=buffSize;
+						console.log(i+" "+j);
+						if(i > audioData.channelData[0].length) {
+							i = audioData.channelData[0].length;
+						}
+						if(j < 0) {
+							j = 0;
+						}
+						var sampleChannels = Float32ArrayMatrix(audioData.channelData.length,i-j+1);
+						for(var n = 0; n<audioData.channelData.length;n++) {
+							for(var m = j; m<i;m++) {
+								sampleChannels[n][m-j] = audioData.channelData[n][m];
+							}
+						}
+						var sampleData = {
+							sampleRate: audioData.sampleRate,
+							channelData: sampleChannels
+						};
+						WavEncoder.encode(sampleData).then(function(buffer) {
+							fs.writeFileSync(config.samplePath+"perceptualSharpness-"+datetimenow+"-"+perceptualSharpnessSampleCounter+config.fileFormat);
+						});
+						while(i >= perceptualSharpnessThreshold) {
+							i++;
+						}
+					}
+				}
+				
+				mfccGraphAvgSorted.sort();
+				mfccGraphAvgSorted.reverse();
+				var mfccThreshold = mfccGraphAvgSorted[Math.ceil(mfccGraphAvgSorted.length/10)];
+				var mfccAvg = getAvg(mfccGraphAvg);
+				
+				for(var i = 0; i<mfccGraphAvg.length;i++) {
+					if(mfccGraphAvg[i] >= mfccThreshold) {
+						mfccSampleCounter++;
+						while(mfccGraphAvg[i+1] > mfccGraphAvg[i]) {
+							i++;
+						}
+						var j = i;
+						while(mfccGraphAvg[j] >= mfccAvg) {
+							j--;
+						}
+						i*=buffSize;
+						j*=buffSize;
+						console.log(i+" "+j);
+						if(i > audioData.channelData[0].length) {
+							i = audioData.channelData[0].length;
+						}
+						if(j < 0) {
+							j = 0;
+						}
+						var sampleChannels = Float32ArrayMatrix(audioData.channelData.length,i-j+1);
+						for(var n = 0; n<audioData.channelData.length;n++) {
+							for(var m = j; m<i;m++) {
+								sampleChannels[n][m-j] = audioData.channelData[n][m];
+							}
+						}
+						var sampleData = {
+							sampleRate: audioData.sampleRate,
+							channelData: sampleChannels
+						};
+						WavEncoder.encode(sampleData).then(function(buffer) {
+							fs.writeFileSync(config.samplePath+"mfcc-"+datetimenow+"-"+mfccSampleCounter+config.fileFormat);
+						});
+						while(i >= mfccThreshold) {
+							i++;
+						}
+					}
+				}
+				
 			});
 		});
 	}
