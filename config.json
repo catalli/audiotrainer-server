@@ -4,6 +4,7 @@
 "heartratePath":"public/heartrate/",
 "soundPath":"public/audio/",
 "samplePath":"public/samples/",
-"heartratePeriod":1.0,
-"fileFormat":".wav"
+"heartratePeriod":0.5,
+"fileFormat":".wav",
+"generateSamples":false
 }
