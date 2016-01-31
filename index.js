@@ -107,6 +107,8 @@ watcher.on('add', function(path) {
 		
 		var name = "";
 		
+		var flags = new Array();
+		
 		var zcrCorrelations = new Array();
 		var rmsCorrelations = new Array();
 		var energyCorrelations = new Array();
@@ -156,6 +158,7 @@ watcher.on('add', function(path) {
 				for(var i = 2; i<data.length;i++) {
 					heartrates.push(parseFloat(data[i]));
 					heartratesSorted.push(parseFloat(data[i]));
+					flags.push(0);
 				}
 			})
 			.on("end", function() {
@@ -281,10 +284,12 @@ watcher.on('add', function(path) {
 					for(var i = 0;i < heartrates.length;i++) {
 						if(heartrates[i] >= heartrateThreshold) {
 							while(heartrates[i+1] > heartrates[i]) {
+								flags[i] = 1;
 								i++;
 							}
 							var j = i;
 							while(heartrates[j] > heartrateAvg) {
+								flags[j] = 1;
 								j--;
 							}
 							increasingGraph = heartrates.slice(j, i+1);
@@ -897,6 +902,42 @@ watcher.on('add', function(path) {
 							});
 						}
 					}
+				}
+				if(config.testing) {
+					var times = new Array(heartrates.length);
+					for(var i = 0;i<times.length;i++) times[i] = (i*config.heartratePeriod).toString();
+					for(var i = 0;i<heartrates.length;i++) heartrates[i] = (heartrates[i]).toString();
+					for(var i = 0;i<zcrGraph.length;i++) zcrGraph[i] = (zcrGraph[i]).toString();
+					for(var i = 0;i<rmsGraph.length;i++) rmsGraph[i] = (rmsGraph[i]).toString();
+					for(var i = 0;i<energyGraph.length;i++) energyGraph[i] = (energyGraph[i]).toString();
+					for(var i = 0;i<spectralSlopeGraph.length;i++) spectralSlopeGraph[i] = (spectralSlopeGraph[i]).toString();
+					for(var i = 0;i<loudnessGraph.length;i++) loudnessGraph[i] = (loudnessGraph[i]).toString();
+					for(var i = 0;i<perceptualSpreadGraph.length;i++) perceptualSpreadGraph[i] = (perceptualSpreadGraph[i]).toString();
+					for(var i = 0;i<perceptualSharpnessGraph.length;i++) perceptualSharpnessGraph[i] = (perceptualSharpnessGraph[i]).toString();
+					for(var i = 0;i<mfccGraph.length;i++) mfccGraph[i] = (mfccGraph[i]).toString();
+					for(var i = 0;i<flags.length;i++) flags[i] = (flags[i]).toString();
+					var csvStream = csv.createWriteStream({headers:true, quoteHeaders:true}), 
+						writableStream = fs.createWriteStream(config.testPath+"debug-"+fileName);
+					writableStream.on("finish", function() {
+						console.log("Debug data at: "+config.testPath+"debug-"+fileName);
+					});
+					csvStream.pipe(writableStream);
+					for(i=0;i<times.length;i++) {
+						csvStream.write({
+							time:times[i],
+							heartrate:heartrates[i],
+							flag:flags[i],
+							zcr:zcrGraph[i],
+							rms:rmsGraph[i],
+							energy:energyGraph[i],
+							spectralSlope:spectralSlopeGraph[i],
+							loudness:loudnessGraph[i],
+							perceptualSpread:perceptualSpreadGraph[i],
+							perceptualSharpness:perceptualSharpnessGraph[i],
+							mfcc:mfccGraph[i]
+						});
+					}
+					csvStream.end();
 				}	
 			});
 		});
