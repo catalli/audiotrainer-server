@@ -7,6 +7,8 @@
 "testPath":"public/test/",
 "heartratePeriod":0.5,
 "fileFormat":".wav",
+"windowLength":5,
+"featureWindowLength":5,
 "testing":false,
 "generateSamples":false
 }

@@ -93,6 +93,42 @@ function getMaxIndex(array) {
 	return maxIndex;
 }
 
+function smooth(graph, wl) {
+	var smoothedGraph = new Array(graph.length);
+	for(var i = 0;i<graph.length;i++) smoothedGraph[i] = graph[i];
+	for(var i = wl;i<smoothedGraph.length-wl;i++) smoothedGraph[i] = getAvg(graph.slice(i-wl, i+wl+1));
+	return smoothedGraph;
+}
+
+function movingAvg(graph, wl) {
+	var avgGraph = new Array(graph.length);
+	for(var i = 0;i<graph.length;i++) avgGraph[i] = graph[i];
+	for(var i = 2*wl;i<avgGraph.length;i++) avgGraph[i] = getAvg(graph.slice(i-2*wl,i+1));
+	return avgGraph;
+}
+
+function derivative(graph, wl) {
+	var graphDerivative = new Array(graph.length);
+	for(var i = wl;i<graph.length-wl;i++) graphDerivative[i] = graph[i] - graph[i-wl];
+	return graphDerivative;
+}
+
+function findPeaks(graph, wl) {
+	var peakArray = new Array();
+	var smoothGraph = smooth(graph, wl);
+	var dGraph = derivative(smoothGraph,wl);
+	var dGraphAvg = movingAvg(dGraph, wl);
+	var d2Graph = derivative(dGraph,wl);
+	for(var i = 3*wl;i<graph.length-3*wl;i++) if((dGraph[i]>=0 && d2Graph[i]<0) && dGraphAvg[i] > 0) peakArray.push(i);
+	return peakArray;
+}
+
+function movingStdDev(graph, wl) {
+	var stdDevGraph = new Array(graph.length);
+	for (var i = 0; i<graph.length;i++) stdDevGraph[i] = 0;
+	for(var i = 2*wl;i<graph.length;i++) stdDevGraph[i] = getStdDev(graph.slice(i-2*wl,i+1));
+	return stdDevGraph;
+}
 
 var watcher = chokidar.watch(config.heartratePath, {ignored: /^\./, persistent: true});
 
@@ -280,15 +316,17 @@ watcher.on('add', function(path) {
 					heartratesSorted.sort();
 					heartratesSorted.reverse();
 					heartrateAvg = getAvg(heartrates);
+					var heartrateSmooth = smooth(heartrates, config.windowLength);
+					var heartratePeaks = findPeaks(heartrates, config.windowLength);
 					var heartrateThreshold = heartratesSorted[Math.ceil(heartratesSorted.length/10)];
 					for(var i = 0;i < heartrates.length;i++) {
 						if(heartrates[i] >= heartrateThreshold) {
-							while(heartrates[i+1] > heartrates[i]) {
+							while(heartratePeaks.indexOf(i) <= -1) {
 								flags[i] = 1;
 								i++;
 							}
 							var j = i;
-							while(heartrates[j] > heartrateAvg) {
+							while(heartrateSmooth[j] > heartrateAvg) {
 								flags[j] = 1;
 								j--;
 							}
@@ -521,16 +559,23 @@ watcher.on('add', function(path) {
 									
 					zcrGraphAvgSorted.sort();
 					zcrGraphAvgSorted.reverse();
+					var zcrDev = movingStdDev(zcrGraphAvg, config.featureWindowLength);
+					var zcrDevAvg = getAvg(zcrDev);
+					var zcrDevSorted = new Array(zcrDev.length);
+					for(var i = 0;i<zcrDev.length;i++) zcrDevSorted[i] = zcrDev[i];
+					zcrDevSorted.sort();
+					zcrDevSorted.reverse();
+					var zcrDevThreshold = zcrDevSorted[Math.ceil(zcrDevSorted.length/10)]
 					var zcrThreshold = zcrGraphAvgSorted[Math.ceil(zcrGraphAvgSorted.length/10)];
 					var zcrAvg = getAvg(zcrGraphAvg);
 									
 					for(var i = 0; i<zcrGraphAvg.length;i++) {
-						if(zcrGraphAvg[i] >= zcrThreshold) {
-							while(zcrGraphAvg[i] >= zcrThreshold && i < zcrGraphAvg.length) {
+						if(zcrGraphAvg[i] >= zcrThreshold || zcrDev[i] >= zcrDevThreshold) {
+							while((zcrGraphAvg[i] >= zcrThreshold || zcrDev[i] >= zcrDevThreshold) && i < zcrGraphAvg.length) {
 								i++;
 							}
 							var j = i;
-							while(zcrGraphAvg[j] >= zcrAvg) {
+							while(zcrGraphAvg[j] >= zcrAvg || zcrDev[j] >= zcrDevAvg) {
 								j--;
 							}
 							i*=buffSize;
@@ -569,16 +614,23 @@ watcher.on('add', function(path) {
 					
 					rmsGraphAvgSorted.sort();
 					rmsGraphAvgSorted.reverse();
+					var rmsDev = movingStdDev(rmsGraphAvg, config.featureWindowLength);
+					var rmsDevAvg = getAvg(rmsDev);
+					var rmsDevSorted = new Array(rmsDev.length);
+					for(var i = 0;i<rmsDev.length;i++) rmsDevSorted[i] = rmsDev[i];
+					rmsDevSorted.sort();
+					rmsDevSorted.reverse();
+					var rmsDevThreshold = rmsDevSorted[Math.ceil(rmsDevSorted.length/10)]
 					var rmsThreshold = rmsGraphAvgSorted[Math.ceil(rmsGraphAvgSorted.length/10)];
 					var rmsAvg = getAvg(rmsGraphAvg);
-					
+									
 					for(var i = 0; i<rmsGraphAvg.length;i++) {
-						if(rmsGraphAvg[i] >= rmsThreshold) {
-							while(rmsGraphAvg[i] >= rmsThreshold && i < rmsGraphAvg.length) {
+						if(rmsGraphAvg[i] >= rmsThreshold || rmsDev[i] >= rmsDevThreshold) {
+							while((rmsGraphAvg[i] >= rmsThreshold || rmsDev[i] >= rmsDevThreshold) && i < rmsGraphAvg.length) {
 								i++;
 							}
 							var j = i;
-							while(rmsGraphAvg[j] >= rmsAvg) {
+							while(rmsGraphAvg[j] >= rmsAvg || rmsDev[j] >= rmsDevAvg) {
 								j--;
 							}
 							i*=buffSize;
@@ -617,16 +669,23 @@ watcher.on('add', function(path) {
 					
 					energyGraphAvgSorted.sort();
 					energyGraphAvgSorted.reverse();
+					var energyDev = movingStdDev(energyGraphAvg, config.featureWindowLength);
+					var energyDevAvg = getAvg(energyDev);
+					var energyDevSorted = new Array(energyDev.length);
+					for(var i = 0;i<energyDev.length;i++) energyDevSorted[i] = energyDev[i];
+					energyDevSorted.sort();
+					energyDevSorted.reverse();
+					var energyDevThreshold = energyDevSorted[Math.ceil(energyDevSorted.length/10)]
 					var energyThreshold = energyGraphAvgSorted[Math.ceil(energyGraphAvgSorted.length/10)];
 					var energyAvg = getAvg(energyGraphAvg);
-					
+									
 					for(var i = 0; i<energyGraphAvg.length;i++) {
-						if(energyGraphAvg[i] >= energyThreshold) {
-							while(energyGraphAvg[i] >= energyThreshold && i < energyGraphAvg.length) {
+						if(energyGraphAvg[i] >= energyThreshold || energyDev[i] >= energyDevThreshold) {
+							while((energyGraphAvg[i] >= energyThreshold || energyDev[i] >= energyDevThreshold) && i < energyGraphAvg.length) {
 								i++;
 							}
 							var j = i;
-							while(energyGraphAvg[j] >= energyAvg) {
+							while(energyGraphAvg[j] >= energyAvg || energyDev[j] >= energyDevAvg) {
 								j--;
 							}
 							i*=buffSize;
@@ -665,16 +724,23 @@ watcher.on('add', function(path) {
 				
 					spectralSlopeGraphAvgSorted.sort();
 					spectralSlopeGraphAvgSorted.reverse();
+					var spectralSlopeDev = movingStdDev(spectralSlopeGraphAvg, config.featureWindowLength);
+					var spectralSlopeDevAvg = getAvg(spectralSlopeDev);
+					var spectralSlopeDevSorted = new Array(spectralSlopeDev.length);
+					for(var i = 0;i<spectralSlopeDev.length;i++) spectralSlopeDevSorted[i] = spectralSlopeDev[i];
+					spectralSlopeDevSorted.sort();
+					spectralSlopeDevSorted.reverse();
+					var spectralSlopeDevThreshold = spectralSlopeDevSorted[Math.ceil(spectralSlopeDevSorted.length/10)]
 					var spectralSlopeThreshold = spectralSlopeGraphAvgSorted[Math.ceil(spectralSlopeGraphAvgSorted.length/10)];
 					var spectralSlopeAvg = getAvg(spectralSlopeGraphAvg);
-					
+									
 					for(var i = 0; i<spectralSlopeGraphAvg.length;i++) {
-						if(spectralSlopeGraphAvg[i] >= spectralSlopeThreshold) {
-							while(spectralSlopeGraphAvg[i] >= spectralSlopeThreshold && i < spectralSlopeGraphAvg.length) {
+						if(spectralSlopeGraphAvg[i] >= spectralSlopeThreshold || spectralSlopeDev[i] >= spectralSlopeDevThreshold) {
+							while((spectralSlopeGraphAvg[i] >= spectralSlopeThreshold || spectralSlopeDev[i] >= spectralSlopeDevThreshold) && i < spectralSlopeGraphAvg.length) {
 								i++;
 							}
 							var j = i;
-							while(spectralSlopeGraphAvg[j] >= spectralSlopeAvg) {
+							while(spectralSlopeGraphAvg[j] >= spectralSlopeAvg || spectralSlopeDev[j] >= spectralSlopeDevAvg) {
 								j--;
 							}
 							i*=buffSize;
@@ -713,16 +779,23 @@ watcher.on('add', function(path) {
 					
 					loudnessGraphAvgSorted.sort();
 					loudnessGraphAvgSorted.reverse();
+					var loudnessDev = movingStdDev(loudnessGraphAvg, config.featureWindowLength);
+					var loudnessDevAvg = getAvg(loudnessDev);
+					var loudnessDevSorted = new Array(loudnessDev.length);
+					for(var i = 0;i<loudnessDev.length;i++) loudnessDevSorted[i] = loudnessDev[i];
+					loudnessDevSorted.sort();
+					loudnessDevSorted.reverse();
+					var loudnessDevThreshold = loudnessDevSorted[Math.ceil(loudnessDevSorted.length/10)]
 					var loudnessThreshold = loudnessGraphAvgSorted[Math.ceil(loudnessGraphAvgSorted.length/10)];
 					var loudnessAvg = getAvg(loudnessGraphAvg);
-					
+									
 					for(var i = 0; i<loudnessGraphAvg.length;i++) {
-						if(loudnessGraphAvg[i] >= loudnessThreshold) {
-							while(loudnessGraphAvg[i] >= loudnessThreshold && i < loudnessGraphAvg.length) {
+						if(loudnessGraphAvg[i] >= loudnessThreshold || loudnessDev[i] >= loudnessDevThreshold) {
+							while((loudnessGraphAvg[i] >= loudnessThreshold || loudnessDev[i] >= loudnessDevThreshold) && i < loudnessGraphAvg.length) {
 								i++;
 							}
 							var j = i;
-							while(loudnessGraphAvg[j] >= loudnessAvg) {
+							while(loudnessGraphAvg[j] >= loudnessAvg || loudnessDev[j] >= loudnessDevAvg) {
 								j--;
 							}
 							i*=buffSize;
@@ -761,16 +834,23 @@ watcher.on('add', function(path) {
 					
 					perceptualSpreadGraphAvgSorted.sort();
 					perceptualSpreadGraphAvgSorted.reverse();
+					var perceptualSpreadDev = movingStdDev(perceptualSpreadGraphAvg, config.featureWindowLength);
+					var perceptualSpreadDevAvg = getAvg(perceptualSpreadDev);
+					var perceptualSpreadDevSorted = new Array(perceptualSpreadDev.length);
+					for(var i = 0;i<perceptualSpreadDev.length;i++) perceptualSpreadDevSorted[i] = perceptualSpreadDev[i];
+					perceptualSpreadDevSorted.sort();
+					perceptualSpreadDevSorted.reverse();
+					var perceptualSpreadDevThreshold = perceptualSpreadDevSorted[Math.ceil(perceptualSpreadDevSorted.length/10)]
 					var perceptualSpreadThreshold = perceptualSpreadGraphAvgSorted[Math.ceil(perceptualSpreadGraphAvgSorted.length/10)];
 					var perceptualSpreadAvg = getAvg(perceptualSpreadGraphAvg);
-					
+									
 					for(var i = 0; i<perceptualSpreadGraphAvg.length;i++) {
-						if(perceptualSpreadGraphAvg[i] >= perceptualSpreadThreshold) {
-							while(perceptualSpreadGraphAvg[i] >= perceptualSpreadThreshold && i < perceptualSpreadGraphAvg.length) {
+						if(perceptualSpreadGraphAvg[i] >= perceptualSpreadThreshold || perceptualSpreadDev[i] >= perceptualSpreadDevThreshold) {
+							while((perceptualSpreadGraphAvg[i] >= perceptualSpreadThreshold || perceptualSpreadDev[i] >= perceptualSpreadDevThreshold) && i < perceptualSpreadGraphAvg.length) {
 								i++;
 							}
 							var j = i;
-							while(perceptualSpreadGraphAvg[j] >= perceptualSpreadAvg) {
+							while(perceptualSpreadGraphAvg[j] >= perceptualSpreadAvg || perceptualSpreadDev[j] >= perceptualSpreadDevAvg) {
 								j--;
 							}
 							i*=buffSize;
@@ -809,16 +889,23 @@ watcher.on('add', function(path) {
 					
 					perceptualSharpnessGraphAvgSorted.sort();
 					perceptualSharpnessGraphAvgSorted.reverse();
+					var perceptualSharpnessDev = movingStdDev(perceptualSharpnessGraphAvg, config.featureWindowLength);
+					var perceptualSharpnessDevAvg = getAvg(perceptualSharpnessDev);
+					var perceptualSharpnessDevSorted = new Array(perceptualSharpnessDev.length);
+					for(var i = 0;i<perceptualSharpnessDev.length;i++) perceptualSharpnessDevSorted[i] = perceptualSharpnessDev[i];
+					perceptualSharpnessDevSorted.sort();
+					perceptualSharpnessDevSorted.reverse();
+					var perceptualSharpnessDevThreshold = perceptualSharpnessDevSorted[Math.ceil(perceptualSharpnessDevSorted.length/10)]
 					var perceptualSharpnessThreshold = perceptualSharpnessGraphAvgSorted[Math.ceil(perceptualSharpnessGraphAvgSorted.length/10)];
 					var perceptualSharpnessAvg = getAvg(perceptualSharpnessGraphAvg);
-								
+									
 					for(var i = 0; i<perceptualSharpnessGraphAvg.length;i++) {
-						if(perceptualSharpnessGraphAvg[i] >= perceptualSharpnessThreshold) {
-							while(perceptualSharpnessGraphAvg[i] >= perceptualSharpnessThreshold && i < perceptualSharpnessGraphAvg.length) {
+						if(perceptualSharpnessGraphAvg[i] >= perceptualSharpnessThreshold || perceptualSharpnessDev[i] >= perceptualSharpnessDevThreshold) {
+							while((perceptualSharpnessGraphAvg[i] >= perceptualSharpnessThreshold || perceptualSharpnessDev[i] >= perceptualSharpnessDevThreshold) && i < perceptualSharpnessGraphAvg.length) {
 								i++;
 							}
 							var j = i;
-							while(perceptualSharpnessGraphAvg[j] >= perceptualSharpnessAvg) {
+							while(perceptualSharpnessGraphAvg[j] >= perceptualSharpnessAvg || perceptualSharpnessDev[j] >= perceptualSharpnessDevAvg) {
 								j--;
 							}
 							i*=buffSize;
@@ -857,16 +944,23 @@ watcher.on('add', function(path) {
 					
 					mfccGraphAvgSorted.sort();
 					mfccGraphAvgSorted.reverse();
+					var mfccDev = movingStdDev(mfccGraphAvg, config.featureWindowLength);
+					var mfccDevAvg = getAvg(mfccDev);
+					var mfccDevSorted = new Array(mfccDev.length);
+					for(var i = 0;i<mfccDev.length;i++) mfccDevSorted[i] = mfccDev[i];
+					mfccDevSorted.sort();
+					mfccDevSorted.reverse();
+					var mfccDevThreshold = mfccDevSorted[Math.ceil(mfccDevSorted.length/10)]
 					var mfccThreshold = mfccGraphAvgSorted[Math.ceil(mfccGraphAvgSorted.length/10)];
 					var mfccAvg = getAvg(mfccGraphAvg);
-						
+									
 					for(var i = 0; i<mfccGraphAvg.length;i++) {
-						if(mfccGraphAvg[i] >= mfccThreshold) {
-							while(mfccGraphAvg[i] >= mfccThreshold && i < mfccGraphAvg.length) {
+						if(mfccGraphAvg[i] >= mfccThreshold || mfccDev[i] >= mfccDevThreshold) {
+							while((mfccGraphAvg[i] >= mfccThreshold || mfccDev[i] >= mfccDevThreshold) && i < mfccGraphAvg.length) {
 								i++;
 							}
 							var j = i;
-							while(mfccGraphAvg[j] >= mfccAvg) {
+							while(mfccGraphAvg[j] >= mfccAvg || mfccDev[j] >= mfccDevAvg) {
 								j--;
 							}
 							i*=buffSize;
