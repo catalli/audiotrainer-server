@@ -234,46 +234,46 @@ watcher.on('add', function(path) {
 					var perceptualSpreadGraph = new Array();
 					var perceptualSharpnessGraph = new Array();
 					var mfccGraph = new Array();
-					
+										
 					for(var i = 0, k=0;i<audioData.channelData[n].length-buffSize;i+=buffSize, k++) {
 						var sig_end = i+buffSize;
 						if(sig_end > audioData.channelData[n].length) {
 							sig_end = audioData.channelData[n].length;
-						}	
+						}
 						var my_signal = audioData.channelData[n].slice(i, sig_end);
 						var buffSizeNew = my_signal.length;
 						var ampSpec = getSpectrum(my_signal);
-					
+												
 						var zcrs = extractors.zcr({
 							signal: my_signal,
 							bufferSize: buffSizeNew,
 							sampleRate: audioData.sampleRate
 						});
-					
+											
 						var rmss = extractors.rms({
 							signal: my_signal,
 							bufferSize: buffSizeNew,
 							sampleRate: audioData.sampleRate
 						});
-					
+										
 						var energys = extractors.energy({
 							signal: my_signal,
 							bufferSize: buffSizeNew,
 							sampleRate: audioData.sampleRate
 						});
-					
+											
 						var spectralSlopes = extractors.spectralSlope({
 							ampSpectrum: ampSpec,
 							bufferSize: buffSizeNew,
 							sampleRate: audioData.sampleRate
 						});
-										
+																
 						var loudnesss = extractors.loudness({
 							ampSpectrum: ampSpec,
 							barkScale: buffSizeNew,
 							sampleRate: audioData.sampleRate
 						});
-					
+											
 						var perceptualSpreads = extractors.perceptualSpread({
 							signal: my_signal,
 							ampSpectrum: ampSpec,
@@ -294,7 +294,8 @@ watcher.on('add', function(path) {
 							ampSpectrum: ampSpec,
 							bufferSize: buffSizeNew,
 							sampleRate: audioData.sampleRate
-						});						
+						});	
+																	
 						zcrGraph.push(zcrs);
 						rmsGraph.push(rmss);
 						energyGraph.push(energys);
@@ -303,7 +304,7 @@ watcher.on('add', function(path) {
 						perceptualSpreadGraph.push(perceptualSpreads);
 						perceptualSharpnessGraph.push(perceptualSharpnesss);
 						mfccGraph.push(getAvg(mfccs));
-						
+												
 						zcrGraphAvg[k][n] = zcrs;
 						rmsGraphAvg[k][n] = rmss;
 						energyGraphAvg[k][n] = energys;
@@ -319,14 +320,15 @@ watcher.on('add', function(path) {
 					var heartrateSmooth = smooth(heartrates, config.windowLength);
 					var heartratePeaks = findPeaks(heartrates, config.windowLength);
 					var heartrateThreshold = heartratesSorted[Math.ceil(heartratesSorted.length/10)];
+										
 					for(var i = 0;i < heartrates.length;i++) {
 						if(heartrates[i] >= heartrateThreshold) {
-							while(heartratePeaks.indexOf(i) <= -1) {
+							while(heartratePeaks.indexOf(i) <= -1 && i < heartrates.length) {
 								flags[i] = 1;
 								i++;
 							}
 							var j = i;
-							while(heartrateSmooth[j] > heartrateAvg) {
+							while(heartrateSmooth[j] > heartrateAvg && j > 0) {
 								flags[j] = 1;
 								j--;
 							}
@@ -348,7 +350,7 @@ watcher.on('add', function(path) {
 							perceptualSpreadCorrelations.push(getCorrelation(increasingGraph, perceptualSpreadGraphSlice));
 							perceptualSharpnessCorrelations.push(getCorrelation(increasingGraph, perceptualSharpnessGraphSlice));
 							mfccCorrelations.push(getCorrelation(increasingGraph, mfccGraphSlice));
-						
+													
 							while(heartrates[i] >= heartrateThreshold) {
 								i++;
 							}

@@ -5,10 +5,10 @@
 "soundPath":"public/audio/",
 "samplePath":"public/samples/",
 "testPath":"public/test/",
-"heartratePeriod":0.5,
+"heartratePeriod":1,
 "fileFormat":".wav",
 "windowLength":5,
 "featureWindowLength":5,
-"testing":false,
-"generateSamples":false
+"testing":true,
+"generateSamples":true
 }
